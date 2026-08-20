@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS SCS-C02 一問一答</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">AWS SCS-C02 <span class="brand-sub">一問一答</span></div>
+      <nav class="tabs">
+        <button class="tab" data-view="study">一問一答</button>
+        <button class="tab" data-view="quiz">シナリオ問題</button>
+        <button class="tab" data-view="browse">一覧</button>
+        <button class="tab" data-view="progress">進捗</button>
+      </nav>
+      <div class="user" id="counts"></div>
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <footer class="foot">
+    解答状況はこの端末の localStorage にのみ保存されます。試験範囲は SCS-C02 に準拠していますが、
+    AWS の仕様は変わることがあるため、迷った点は公式ドキュメントで確認してください。
+  </footer>
+</div>
+
+<script src="data/cards-d1-threat.js"></script>
+<script src="data/cards-d2-logging.js"></script>
+<script src="data/cards-d3-infra.js"></script>
+<script src="data/cards-d4-iam.js"></script>
+<script src="data/cards-d5-data.js"></script>
+<script src="data/cards-d6-governance.js"></script>
+<script src="data/scenarios-d1-threat.js"></script>
+<script src="data/scenarios-d2-logging.js"></script>
+<script src="data/scenarios-d3-infra.js"></script>
+<script src="data/scenarios-d4-iam.js"></script>
+<script src="data/scenarios-d5-data.js"></script>
+<script src="data/scenarios-d6-governance.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
