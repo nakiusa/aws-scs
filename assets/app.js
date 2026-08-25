@@ -69,6 +69,15 @@
     return a;
   }
   function el(id) { return document.getElementById(id); }
+
+  // 文字を選択しただけのクリックを、解答や開閉として扱わない。
+  // 通常のクリックは mousedown で選択が解除されるので、ここに来るのは
+  // ドラッグで選択を終えた場合だけになる。
+  function selectingText() {
+    var sel = window.getSelection();
+    return !!sel && !sel.isCollapsed && sel.toString().trim().length > 0;
+  }
+
   function pct(n, d) { return d ? Math.round((n / d) * 100) : 0; }
 
   function categories(items) {
@@ -284,8 +293,8 @@
           if (idx === ch.ans) { cls += " correct"; mark = "◯"; }
           else if (idx === study.picked) { cls += " chosen-wrong"; mark = "✕"; }
         }
-        h += '<li><button class="' + cls + '" data-i="' + idx + '"' +
-          (study.picked != null ? " disabled" : "") + '><span class="mark">' + mark + "</span>" +
+        h += '<li><button class="' + cls + (study.picked != null ? " locked" : "") + '" data-i="' + idx + '"' +
+          (study.picked != null ? ' aria-disabled="true"' : "") + '><span class="mark">' + mark + "</span>" +
           "<span>" + rich(item.a) + "</span></button></li>";
       });
       h += "</ul>";
@@ -314,7 +323,10 @@
 
     if (study.fmt === "choice") {
       main.querySelectorAll(".choice").forEach(function (b) {
-        b.addEventListener("click", function () { pickChoice(parseInt(b.dataset.i, 10)); });
+        b.addEventListener("click", function () {
+          if (selectingText()) return;
+          pickChoice(parseInt(b.dataset.i, 10));
+        });
       });
       if (el("s-next")) el("s-next").addEventListener("click", advanceCard);
     } else if (study.shown) {
@@ -523,7 +535,8 @@
       } else if (chosenAt >= 0) {
         cls += " picked"; mark = isOrdered(q) ? String(chosenAt + 1) : "✓";
       }
-      h += '<li><button class="' + cls + '" data-i="' + idx + '"' + (done ? " disabled" : "") + ">" +
+      h += '<li><button class="' + cls + (done ? " locked" : "") + '" data-i="' + idx + '"' +
+        (done ? ' aria-disabled="true"' : "") + ">" +
         '<span class="mark">' + mark + "</span><span>" + rich(choice);
       if (done && want.indexOf(idx) < 0 && q.ng && q.ng[idx]) {
         h += '<span class="why">' + rich(q.ng[idx]) + "</span>";
@@ -601,6 +614,7 @@
 
     main.querySelectorAll(".choice").forEach(function (b) {
       b.addEventListener("click", function () {
+        if (selectingText()) return;
         if (q.type) pickQuiz(parseInt(b.dataset.i, 10)); else answerQuiz(parseInt(b.dataset.i, 10));
       });
     });
@@ -810,6 +824,7 @@
     });
     main.querySelectorAll(".list-q").forEach(function (n) {
       n.addEventListener("click", function () {
+        if (selectingText()) return;
         var id = n.dataset.id;
         browse.open[id] = !browse.open[id];
         render();

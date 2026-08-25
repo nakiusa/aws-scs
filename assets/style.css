@@ -205,8 +205,8 @@ input[type="search"] { min-width: 200px; flex: 1; }
   cursor: pointer;
   line-height: 1.6;
 }
-.choice:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
-.choice:disabled { cursor: default; }
+.choice:hover:not(.locked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice.locked { cursor: default; }
 .choice .mark {
   flex: none;
   width: 22px;
@@ -328,3 +328,17 @@ input[type="search"] { min-width: 200px; flex: 1; }
   .matchrow { grid-template-columns: 1fr; }
 }
 .matcha .why { display: block; margin-top: 4px; }
+
+/* ── 本文の選択とコピー ─────────────────────────────
+   選択肢は button なので、既定のままでは中の文字をドラッグで
+   選べない。わからない語をそのまま検索に貼れるよう、本文にあたる
+   ところはすべて選択できるようにする。 */
+.choice,
+.choice span,
+.flash-q, .flash-a, .explain, .note, .why,
+.matchq, .matcha, .list-item, .badge {
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* 選択肢の頭にある A / ◯ / 番号は、コピーに混ぜたくない */
+.choice .mark { -webkit-user-select: none; user-select: none; }
