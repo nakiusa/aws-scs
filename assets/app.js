@@ -1,4 +1,4 @@
-/* AWS SCS-C02 一問一答 — 静的サイト（GitHub Pages 想定）
+/* AWS SCS-C03 一問一答 — 静的サイト（GitHub Pages 想定）
  *
  * 問題データは data/*.js が window.SCS_CARDS / window.SCS_SCENARIOS に push する。
  * 解答履歴は localStorage にのみ保存し、サーバーには何も送らない。
@@ -6,18 +6,18 @@
 (function () {
   "use strict";
 
-  var STORE_KEY = "awsscs.c02.v1";
+  var STORE_KEY = "awsscs.c03.v1";
 
   var CARDS = window.SCS_CARDS || [];
   var SCEN = window.SCS_SCENARIOS || [];
 
   var DOMAINS = {
-    1: { short: "脅威検出", label: "第1分野: 脅威検出とインシデント対応（14%）" },
-    2: { short: "ログ監視", label: "第2分野: セキュリティのログ記録とモニタリング（18%）" },
-    3: { short: "インフラ", label: "第3分野: インフラストラクチャのセキュリティ（20%）" },
-    4: { short: "IAM", label: "第4分野: アイデンティティとアクセスの管理（16%）" },
+    1: { short: "検出", label: "第1分野: 検出（16%）" },
+    2: { short: "IR", label: "第2分野: インシデント対応（14%）" },
+    3: { short: "インフラ", label: "第3分野: インフラストラクチャのセキュリティ（18%）" },
+    4: { short: "IAM", label: "第4分野: アイデンティティとアクセスの管理（20%）" },
     5: { short: "データ保護", label: "第5分野: データ保護（18%）" },
-    6: { short: "ガバナンス", label: "第6分野: 管理とセキュリティガバナンス（14%）" },
+    6: { short: "ガバナンス", label: "第6分野: セキュリティの基礎とガバナンス（14%）" },
   };
 
   // ── ストレージ ──────────────────────────────────────────
@@ -147,7 +147,7 @@
   var view = "study";
   var study = { queue: [], i: 0, shown: false, started: false, cat: "", mode: "all", shuffle: true,
                 fmt: "choice", choices: null, picked: null, log: [] };
-  var quiz = { queue: [], i: 0, answered: null, log: [], started: false, done: false,
+  var quiz = { queue: [], i: 0, answered: null, sel: [], log: [], started: false, done: false,
                scope: "all", count: "20", wrongOnly: false };
   var browse = { q: "", cat: "", kind: "card", open: {} };
 
@@ -393,12 +393,182 @@
       else if (study.shown && (e.key === "2" || e.key === "k")) { e.preventDefault(); grade(false); }
       else if (e.key === "ArrowRight") { e.preventDefault(); study.i++; resetCard(); render(); }
     } else if (view === "quiz" && quiz.started && !quiz.done) {
-      if (quiz.answered == null && "1234".indexOf(e.key) >= 0) { answerQuiz(parseInt(e.key, 10) - 1); }
-      else if (quiz.answered != null && (e.code === "Space" || e.key === "Enter" || e.key === "ArrowRight")) {
+      var qq = quiz.queue[quiz.i];
+      if (quiz.answered != null && (e.code === "Space" || e.key === "Enter" || e.key === "ArrowRight")) {
         e.preventDefault(); nextQuiz();
+      } else if (quiz.answered == null && qq) {
+        if (qq.type === "match") return;                 // マッチングはセレクトで操作する
+        var n = "123456789".indexOf(e.key);
+        if (n >= 0 && n < (qq.c || []).length) { e.preventDefault(); pickQuiz(n); }
+        else if (e.code === "Space" || e.key === "Enter") {
+          if (qq.type) { e.preventDefault(); submitQuiz(); }
+        }
       }
     }
   });
+
+
+
+  // 一覧や復習で「正解」を1行で示す
+  function answerText(q) {
+    if (q.type === "match") {
+      return q.pairs.map(function (p) { return p[0] + " → " + p[1]; }).join(" / ");
+    }
+    if (q.type === "order") return q.ans.map(function (i) { return q.c[i]; }).join(" → ");
+    if (q.type === "multi") return q.ans.map(function (i) { return "ABCDEFG"[i] + ". " + q.c[i]; }).join(" / ");
+    return "ABCDEFG"[q.ans] + ". " + q.c[q.ans];
+  }
+
+
+  // 出題のたびに選択肢の並びを入れ替える。
+  // データ側は「正解を先頭に書く」形で書きやすくしてあるので、
+  // シャッフルしないと位置だけで正解が当たってしまう。
+  function prepareQuestion(q) {
+    if (q.type === "match") {
+      var pairs = shuffle(q.pairs.slice());
+      var opts = shuffle(q.pairs.map(function (p) { return p[1]; }));
+      return Object.assign({}, q, { pairs: pairs, opts: opts });
+    }
+    var perm = shuffle(q.c.map(function (_, i) { return i; }));   // 表示位置 → 元の位置
+    var pos = [];                                                  // 元の位置 → 表示位置
+    perm.forEach(function (orig, shown) { pos[orig] = shown; });
+    var out = Object.assign({}, q, {
+      c: perm.map(function (orig) { return q.c[orig]; })
+    });
+    if (q.ng) out.ng = perm.map(function (orig) { return q.ng[orig]; });
+    out.ans = q.type ? q.ans.map(function (orig) { return pos[orig]; }) : pos[q.ans];
+    return out;
+  }
+
+  // ── 出題形式（SCS-C03 で択一以外が加わった）──────────────
+  // 単一選択（type なし）、複数選択、並べ替え、組み合わせの4種類を扱う。
+  var TYPE_HINT = {
+    multi: "複数選択（正解は2つ以上）",
+    order: "並べ替え（正しい順に選ぶ）",
+    match: "組み合わせ（それぞれに対応するものを選ぶ）"
+  };
+
+  function isOrdered(q) { return q.type === "order"; }
+
+  // 正解の集合／並び。単一選択は数値、それ以外は配列を返す
+  function correctOf(q) {
+    if (q.type === "match") return q.pairs.map(function (p) { return p[1]; });
+    return q.ans;
+  }
+
+  function wasCorrect() {
+    var q = quiz.queue[quiz.i], v = quiz.answered;
+    if (v == null) return false;
+    if (!q.type) return v === q.ans;
+    var want = correctOf(q);
+    if (v.length !== want.length) return false;
+    if (isOrdered(q) || q.type === "match") {
+      return want.every(function (x, i) { return v[i] === x; });
+    }
+    var a = v.slice().sort(), b = want.slice().sort();          // 複数選択は順不同
+    return a.every(function (x, i) { return x === b[i]; });
+  }
+
+  function answerLabel(q) {
+    if (!q.type) return "なぜ " + "ABCDEFG"[q.ans] + " なのか";
+    if (q.type === "multi") return "正解は " + q.ans.map(function (i) { return "ABCDEFG"[i]; }).join("、");
+    if (q.type === "order") return "正しい順序は " + q.ans.map(function (i) { return "ABCDEFG"[i]; }).join(" → ");
+    return "それぞれの正しい対応";
+  }
+
+  // 選択のトグル。並べ替えは押した順に積み、複数選択は入り切りする
+  function pickQuiz(idx) {
+    var q = quiz.queue[quiz.i];
+    if (quiz.answered != null || !q.type || q.type === "match") return;
+    var at = quiz.sel.indexOf(idx);
+    if (isOrdered(q)) {
+      if (at >= 0) quiz.sel.splice(at, 1); else quiz.sel.push(idx);
+    } else {
+      if (at >= 0) quiz.sel.splice(at, 1); else quiz.sel.push(idx);
+    }
+    render();
+  }
+
+  function submitQuiz() {
+    var q = quiz.queue[quiz.i];
+    if (quiz.answered != null || !q.type) return;
+    if (q.type === "match") {
+      if (quiz.sel.length !== q.pairs.length || quiz.sel.some(function (v) { return !v; })) {
+        alert("すべての項目を選んでから解答してください。"); return;
+      }
+    } else if (!quiz.sel.length) {
+      alert("選択肢を選んでください。"); return;
+    }
+    recordQuiz(quiz.sel.slice());
+  }
+
+  function renderChoices(q) {
+    if (q.type === "match") return renderMatch(q);
+    var done = quiz.answered != null;
+    var want = q.type ? correctOf(q) : [q.ans];
+    var h = '<ul class="choices">';
+    q.c.forEach(function (choice, idx) {
+      var cls = "choice", mark = "ABCDEFG"[idx];
+      var chosenAt = done ? quiz.answered.indexOf ? quiz.answered.indexOf(idx) : -1 : quiz.sel.indexOf(idx);
+      if (done) {
+        var inWant = want.indexOf(idx) >= 0;
+        if (isOrdered(q)) {
+          // 正しい位置を番号で示し、自分が置いた位置と違うものだけを誤りとして色分けする
+          mark = String(want.indexOf(idx) + 1);
+          cls += (chosenAt === want.indexOf(idx)) ? " correct" : " chosen-wrong";
+        } else if (inWant) {
+          cls += " correct";
+          mark = "◯";
+        } else if (chosenAt >= 0 || quiz.answered === idx) { cls += " chosen-wrong"; mark = "✕"; }
+      } else if (chosenAt >= 0) {
+        cls += " picked"; mark = isOrdered(q) ? String(chosenAt + 1) : "✓";
+      }
+      h += '<li><button class="' + cls + '" data-i="' + idx + '"' + (done ? " disabled" : "") + ">" +
+        '<span class="mark">' + mark + "</span><span>" + rich(choice);
+      if (done && want.indexOf(idx) < 0 && q.ng && q.ng[idx]) {
+        h += '<span class="why">' + rich(q.ng[idx]) + "</span>";
+      }
+      h += "</span></button></li>";
+    });
+    return h + "</ul>";
+  }
+
+  function renderMatch(q) {
+    var done = quiz.answered != null;
+    var pool = q.opts || q.pairs.map(function (p) { return p[1]; });
+    var h = '<div class="matchlist">';
+    q.pairs.forEach(function (pair, i) {
+      var picked = done ? quiz.answered[i] : quiz.sel[i];
+      var ok = picked === pair[1];
+      h += '<div class="matchrow' + (done ? (ok ? " correct" : " chosen-wrong") : "") + '">' +
+        '<div class="matchq">' + rich(pair[0]) + "</div>";
+      if (done) {
+        h += '<div class="matcha">' + (ok ? "◯ " : "✕ ") + rich(picked || "（未選択）") +
+          (ok ? "" : '<span class="why">正しくは ' + rich(pair[1]) + "</span>") + "</div>";
+      } else {
+        h += '<select class="match-sel" data-i="' + i + '"><option value="">選んでください</option>';
+        pool.forEach(function (o) {
+          h += '<option value="' + esc(o) + '"' + (picked === o ? " selected" : "") + ">" + esc(o) + "</option>";
+        });
+        h += "</select>";
+      }
+      h += "</div>";
+    });
+    return h + "</div>";
+  }
+
+  // 採点と履歴の記録。形式によらずここを通す
+  function recordQuiz(value) {
+    var q = quiz.queue[quiz.i];
+    quiz.answered = value;
+    var ok = wasCorrect();
+    var t = quizStat(q.id);
+    if (ok) t.ok++; else t.ng++;
+    t.last = ok;
+    quiz.log.push({ id: q.id, d: q.d, ok: ok });
+    save();
+    render();
+  }
 
   // ── シナリオ問題 ────────────────────────────────────────
   function renderQuiz() {
@@ -412,37 +582,33 @@
       '<span class="badge">' + esc(DOMAINS[q.d].short) + "</span>" +
       '<span class="muted small" style="margin-left:auto">' + (quiz.i + 1) + " / " + quiz.queue.length + "</span></div>";
     h += '<div style="font-size:16px">' + rich(q.q) + "</div>";
-    h += '<ul class="choices">';
-    q.c.forEach(function (choice, idx) {
-      var cls = "choice", mark = "ABCD"[idx];
-      if (quiz.answered != null) {
-        if (idx === q.ans) { cls += " correct"; mark = "◯"; }
-        else if (idx === quiz.answered) { cls += " chosen-wrong"; mark = "✕"; }
-      }
-      h += '<li><button class="' + cls + '" data-i="' + idx + '"' + (quiz.answered != null ? " disabled" : "") + ">" +
-        '<span class="mark">' + mark + "</span><span>" + rich(choice);
-      if (quiz.answered != null && idx !== q.ans && q.ng && q.ng[idx]) {
-        h += '<span class="why">' + rich(q.ng[idx]) + "</span>";
-      }
-      h += "</span></button></li>";
-    });
-    h += "</ul>";
+    if (q.type) h += '<p class="qtype">' + esc(TYPE_HINT[q.type]) + "</p>";
+    h += renderChoices(q);
 
     if (quiz.answered != null) {
-      h += '<div class="explain"><h4>' + (quiz.answered === q.ans ? "正解" : "不正解") +
-        "：なぜ " + "ABCD"[q.ans] + " なのか</h4>" +
+      h += '<div class="explain"><h4>' + (wasCorrect() ? "正解" : "不正解") + "：" + esc(answerLabel(q)) + "</h4>" +
         rich(q.exp) + "</div>";
       if (q.idea) h += '<div class="explain idea"><h4>思想</h4>' + rich(q.idea) + "</div>";
       h += '<div class="flash-actions"><button class="btn primary" id="q-next">' +
-        (quiz.i + 1 >= quiz.queue.length ? "結果を見る" : "次の問題 (Space)") + "</button>" +
-        '<span class="keyhint">解答は 1〜4 キーでも選べます</span></div>';
+        (quiz.i + 1 >= quiz.queue.length ? "結果を見る" : "次の問題 (Space)") + "</button></div>";
+    } else if (q.type) {
+      h += '<div class="flash-actions"><button class="btn primary" id="q-submit">解答する</button>' +
+        (q.type === "order" ? '<button class="btn" id="q-clear">選び直す</button>' : "") +
+        '<span class="keyhint">' + (q.type === "match" ? "すべて選んでから解答してください" : "数字キーで選択、Space で解答") + "</span></div>";
     }
     h += "</div>";
     main.innerHTML = h;
 
     main.querySelectorAll(".choice").forEach(function (b) {
-      b.addEventListener("click", function () { answerQuiz(parseInt(b.dataset.i, 10)); });
+      b.addEventListener("click", function () {
+        if (q.type) pickQuiz(parseInt(b.dataset.i, 10)); else answerQuiz(parseInt(b.dataset.i, 10));
+      });
     });
+    main.querySelectorAll(".match-sel").forEach(function (sel) {
+      sel.addEventListener("change", function () { quiz.sel[parseInt(sel.dataset.i, 10)] = sel.value; });
+    });
+    if (el("q-submit")) el("q-submit").addEventListener("click", submitQuiz);
+    if (el("q-clear")) el("q-clear").addEventListener("click", function () { quiz.sel = []; render(); });
     if (el("q-next")) el("q-next").addEventListener("click", nextQuiz);
   }
 
@@ -450,7 +616,8 @@
     var cats = categories(SCEN);
     var wrong = SCEN.filter(function (s) { var t = state.quiz[s.id]; return t && t.last === false; }).length;
     var h = '<div class="card"><h3>シナリオ問題</h3>' +
-      '<p class="mt small muted">本試験と同じ形式の状況設定問題です。要件（最小権限、運用負荷、検知の速さ、証跡の完全性、ダウンタイム）のうち' +
+      '<p class="mt small muted">本試験と同じ形式の状況設定問題です。SCS-C03 で加わった複数選択、並べ替え、組み合わせも混ざります。' +
+      '要件（最小権限、運用負荷、検知の速さ、証跡の完全性、ダウンタイム）のうち' +
       "どれが優先されているかを読み取るのがコツで、選択肢は「動くかどうか」ではなく「要件に一番合うか」で選びます。</p>";
     h += '<div class="filters mt">';
     h += '<select id="q-scope">' + opt("all", "全分野（" + SCEN.length + "問）", quiz.scope);
@@ -464,7 +631,7 @@
     });
     h += "</select>";
     h += '<select id="q-count">' + opt("10", "10問", quiz.count) + opt("20", "20問", quiz.count) +
-      opt("65", "65問（本番と同じ数）", quiz.count) + opt("all", "全問", quiz.count) + "</select>";
+      opt("65", "65問（本番と同じ数。170分で解く）", quiz.count) + opt("all", "全問", quiz.count) + "</select>";
     h += '<label class="small row" style="gap:5px"><input type="checkbox" id="q-wrong"' +
       (quiz.wrongOnly ? " checked" : "") + "> 前回間違えた問題のみ（" + wrong + "問）</label>";
     h += '<button class="btn primary" id="q-start">開始</button>';
@@ -506,9 +673,10 @@
     shuffle(list);
     if (quiz.count !== "all") list = list.slice(0, parseInt(quiz.count, 10));
     if (!list.length) { alert("条件に合う問題がありません。"); return; }
-    quiz.queue = list;
+    quiz.queue = list.map(prepareQuestion);
     quiz.i = 0;
     quiz.answered = null;
+    quiz.sel = [];
     quiz.log = [];
     quiz.started = true;
     quiz.done = false;
@@ -517,19 +685,13 @@
 
   function answerQuiz(idx) {
     var q = quiz.queue[quiz.i];
-    if (!q || idx >= q.c.length || quiz.answered != null) return;
-    quiz.answered = idx;
-    var t = quizStat(q.id);
-    var ok = idx === q.ans;
-    if (ok) t.ok++; else t.ng++;
-    t.last = ok;
-    quiz.log.push({ id: q.id, d: q.d, ok: ok });
-    save();
-    render();
+    if (!q || q.type || idx >= q.c.length || quiz.answered != null) return;
+    recordQuiz(idx);
   }
 
   function nextQuiz() {
     quiz.answered = null;
+    quiz.sel = [];
     quiz.i++;
     if (quiz.i >= quiz.queue.length) quiz.done = true;
     render();
@@ -563,7 +725,7 @@
         var q = SCEN.filter(function (s) { return s.id === id; })[0];
         if (!q) return;
         h += '<div class="list-item"><div class="txt"><div>' + rich(q.q) + "</div>" +
-          '<div class="list-a"><b>正解: ' + "ABCD"[q.ans] + ". " + rich(q.c[q.ans]) + "</b>" +
+          '<div class="list-a"><b>正解: ' + rich(answerText(q)) + "</b>" +
           '<div class="note">' + rich(q.exp) + "</div>" +
           (q.idea ? '<div class="note idea"><b>思想</b> ' + rich(q.idea) + "</div>" : "") + "</div></div></div>";
       });
@@ -573,8 +735,8 @@
     el("q-retry").addEventListener("click", function () {
       var retry = quiz.queue.filter(function (q) { return wrongIds.indexOf(q.id) >= 0; });
       if (!retry.length) { quiz.started = false; render(); return; }
-      quiz.queue = shuffle(retry);
-      quiz.i = 0; quiz.answered = null; quiz.log = []; quiz.done = false;
+      quiz.queue = shuffle(retry).map(prepareQuestion);
+      quiz.i = 0; quiz.answered = null; quiz.sel = []; quiz.log = []; quiz.done = false;
       render();
     });
     el("q-back").addEventListener("click", function () { quiz.started = false; quiz.done = false; render(); });
@@ -588,7 +750,7 @@
     var list = items.filter(function (x) {
       if (browse.cat && x.cat !== browse.cat) return false;
       if (!q) return true;
-      var hay = (x.q + " " + (x.a || "") + " " + (x.note || "") + " " + (x.idea || "") + " " + (x.exp || "") + " " + (x.c || []).join(" ")).toLowerCase();
+      var hay = (x.q + " " + (x.a || "") + " " + (x.note || "") + " " + (x.idea || "") + " " + (x.exp || "") + " " + (x.c || []).join(" ") + " " + (x.pairs || []).map(function (p) { return p.join(" "); }).join(" ")).toLowerCase();
       return hay.indexOf(q) >= 0;
     });
 
@@ -616,9 +778,16 @@
             (x.idea ? '<div class="note idea"><b>思想</b> ' + rich(x.idea) + "</div>" : "") + "</div>";
         } else {
           h += '<div class="list-a">';
-          x.c.forEach(function (ch, i) {
-            h += "<div>" + (i === x.ans ? "<b>◯ " : "✕ ") + "ABCD"[i] + ". " + rich(ch) + (i === x.ans ? "</b>" : "") + "</div>";
-          });
+          if (x.type === "match") {
+            x.pairs.forEach(function (p) { h += "<div><b>" + rich(p[0]) + " → " + rich(p[1]) + "</b></div>"; });
+          } else {
+            var want = x.type ? x.ans : [x.ans];
+            x.c.forEach(function (ch, i) {
+              var hit = want.indexOf(i);
+              h += "<div>" + (hit >= 0 ? "<b>" + (x.type === "order" ? hit + 1 + ". " : "◯ ") : "✕ ") +
+                "ABCDEFG"[i] + ". " + rich(ch) + (hit >= 0 ? "</b>" : "") + "</div>";
+            });
+          }
           h += '<div class="note">' + rich(x.exp) + "</div>" +
             (x.idea ? '<div class="note idea"><b>思想</b> ' + rich(x.idea) + "</div>" : "") + "</div>";
         }

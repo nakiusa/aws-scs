@@ -294,3 +294,37 @@ input[type="search"] { min-width: 200px; flex: 1; }
   border-radius: 6px;
 }
 .note.idea b { color: var(--accent); margin-right: 6px; }
+
+/* ── 択一以外の出題形式（複数選択・並べ替え・組み合わせ）── */
+.qtype {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.choice.picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.choice.picked .mark { background: var(--accent); color: #fff; }
+
+.matchlist { margin-top: 14px; display: grid; gap: 10px; }
+.matchrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.matchrow.correct { border-color: var(--good); }
+.matchrow.chosen-wrong { border-color: var(--bad); }
+.matchq { font-size: 14px; }
+.matcha { font-size: 14px; }
+.matchrow select { width: 100%; max-width: 100%; }
+@media (max-width: 640px) {
+  .matchrow { grid-template-columns: 1fr; }
+}
+.matcha .why { display: block; margin-top: 4px; }
