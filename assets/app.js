@@ -124,10 +124,30 @@
     return bigramSim(a, b) > 0.5;
   }
 
+  // 解答の「文の形」。問いに対して形がかみ合わない誤選択肢
+  // （「〜のため。」が「何を強制できるか」の答えに並ぶなど）を避けるために使う。
+  // 最初の一文だけを見る。
+  function answerForm(a) {
+    var first = a.split("。")[0];
+    if (/(ため|から|ためである)$/.test(first)) return "reason";      // なぜ、への答え
+    if (!/[\u3041-\u3096]$/.test(first)) return "noun";              // 名詞止め（列挙、名称）
+    if (/(ない|できる|である|になる|だ|いる|ある|のみ|だけ|限る)$/.test(first)) return "state";  // 状態・可否
+    return "how";                                                       // 手順・方法
+  }
+
   function buildChoices(card) {
+    // 手書きの誤選択肢があればそれを使う
+    if (card.x && card.x.length >= 3) {
+      var fixed = shuffle(card.x.slice(0, 3).map(function (t, i) { return { id: card.id + "#x" + i, a: t }; }).concat([card]));
+      return { list: fixed, ans: fixed.indexOf(card) };
+    }
+    var form = answerForm(card.a);
+    var sameForm = function (x) { return answerForm(x.a) === form; };
+    // 近いものから順に探し、形が合うものを優先する。最後の砦だけ形を問わない
     var pools = [
-      CARDS.filter(function (x) { return x.cat === card.cat; }),
-      CARDS.filter(function (x) { return x.d === card.d; }),
+      CARDS.filter(function (x) { return x.cat === card.cat && sameForm(x); }),
+      CARDS.filter(function (x) { return x.d === card.d && sameForm(x); }),
+      CARDS.filter(sameForm),
       CARDS
     ];
     var picks = [];
