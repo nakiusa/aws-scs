@@ -2,47 +2,44 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AWS SCS-C03 一問一答</title>
-<link rel="stylesheet" href="assets/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AWS SCS-C03 対策</title>
+<meta name="theme-color" content="#07070b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Dela+Gothic+One&family=Murecho:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css?v=3">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2307070b'/><text x='50' y='70' font-size='56' text-anchor='middle' fill='%23ff2fd6' font-family='sans-serif' font-weight='900'>S</text></svg>">
 </head>
 <body>
 
-<div id="app">
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">AWS SCS-C03 <span class="brand-sub">一問一答</span></div>
-      <nav class="tabs">
-        <button class="tab" data-view="study">一問一答</button>
-        <button class="tab" data-view="quiz">シナリオ問題</button>
-        <button class="tab" data-view="browse">一覧</button>
-        <button class="tab" data-view="progress">進捗</button>
-      </nav>
-      <div class="user" id="counts"></div>
-    </div>
-  </header>
+<header class="top">
+  <div class="wrap top-inner">
+    <span class="brand">SCS-C03</span>
+    <nav class="nav">
+      <button type="button" data-view="today">今日</button>
+      <button type="button" data-view="practice">演習</button>
+      <button type="button" data-view="mock">模擬試験</button>
+      <button type="button" data-view="browse">一覧</button>
+      <button type="button" data-view="progress">進捗</button>
+    </nav>
+  </div>
+</header>
 
-  <main id="main"></main>
+<main id="main" class="wrap"></main>
 
-  <footer class="foot">
-    解答状況はこの端末の localStorage にのみ保存されます。試験範囲は SCS-C03 に準拠していますが、
-    AWS の仕様は変わることがあるため、迷った点は公式ドキュメントで確認してください。
-  </footer>
-</div>
-
-<script src="data/cards-d1-detection.js"></script>
-<script src="data/cards-d2-response.js"></script>
-<script src="data/cards-d3-infra.js"></script>
-<script src="data/cards-d4-iam.js"></script>
-<script src="data/cards-d5-data.js"></script>
-<script src="data/cards-d6-governance.js"></script>
-<script src="data/scenarios-d1-detection.js"></script>
-<script src="data/scenarios-d2-response.js"></script>
-<script src="data/scenarios-d3-infra.js"></script>
-<script src="data/scenarios-d4-iam.js"></script>
-<script src="data/scenarios-d5-data.js"></script>
-<script src="data/scenarios-d6-governance.js"></script>
-<script src="assets/app.js"></script>
+<script src="data/cards-d1-detection.js?v=3"></script>
+<script src="data/cards-d2-response.js?v=3"></script>
+<script src="data/cards-d3-infra.js?v=3"></script>
+<script src="data/cards-d4-iam.js?v=3"></script>
+<script src="data/cards-d5-data.js?v=3"></script>
+<script src="data/cards-d6-governance.js?v=3"></script>
+<script src="data/scenarios-d1-detection.js?v=3"></script>
+<script src="data/scenarios-d2-response.js?v=3"></script>
+<script src="data/scenarios-d3-infra.js?v=3"></script>
+<script src="data/scenarios-d4-iam.js?v=3"></script>
+<script src="data/scenarios-d5-data.js?v=3"></script>
+<script src="data/scenarios-d6-governance.js?v=3"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>
